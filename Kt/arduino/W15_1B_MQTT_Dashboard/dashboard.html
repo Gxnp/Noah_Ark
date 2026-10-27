@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arduino R4 MQTT Dashboard</title>
+<!-- ไลบรารี MQTT สำหรับเว็บ (ต่อผ่าน WebSocket) -->
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  body { font-family: sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
+  .card { border: 1px solid #ccc; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .big { font-size: 48px; font-weight: bold; }
+  button { font-size: 18px; padding: 8px 20px; margin-right: 8px; }
+  #status { color: gray; }
+</style>
+</head>
+<body>
+  <h2>Arduino R4 MQTT Dashboard</h2>
+  <p id="status">กำลังเชื่อมต่อ broker...</p>
+
+  <div class="card">
+    <div>ค่า Potentiometer (0–1023)</div>
+    <div class="big" id="pot">-</div>
+    <progress id="potBar" max="1023" value="0" style="width:100%"></progress>
+  </div>
+
+  <div class="card">
+    <div>ควบคุม LED</div>
+    <p>
+      <button onclick="sendLed('ON')">ON</button>
+      <button onclick="sendLed('OFF')">OFF</button>
+    </p>
+    <input type="range" min="0" max="255" value="0" id="slider" style="width:100%">
+    <div>ความสว่าง: <span id="sliderVal">0</span></div>
+  </div>
+
+<script>
+  // ต้องตรงกับในโค้ดบอร์ด (เปลี่ยนรหัสนักศึกษา)
+  const TOPIC_POT = "68070180/pot";
+  const TOPIC_LED = "68070180/led";
+
+  // เว็บต้องต่อผ่าน WebSocket (wss พอร์ต 8884) ไม่ใช่พอร์ต 1883 แบบบอร์ด
+  const client = mqtt.connect("wss://mqtt-dashboard.com:8884/mqtt");
+
+  client.on("connect", function () {
+    document.getElementById("status").textContent = "เชื่อมต่อ broker แล้ว";
+    client.subscribe(TOPIC_POT);
+  });
+
+  client.on("reconnect", function () {
+    document.getElementById("status").textContent = "กำลังเชื่อมต่อใหม่...";
+  });
+
+  client.on("message", function (topic, message) {
+    if (topic === TOPIC_POT) {
+      const value = parseInt(message.toString());
+      document.getElementById("pot").textContent = value;
+      document.getElementById("potBar").value = value;
+    }
+  });
+
+  function sendLed(value) {
+    client.publish(TOPIC_LED, String(value));
+  }
+
+  const slider = document.getElementById("slider");
+  slider.addEventListener("input", function () {
+    document.getElementById("sliderVal").textContent = slider.value;
+    sendLed(slider.value);
+  });
+</script>
+</body>
+</html>

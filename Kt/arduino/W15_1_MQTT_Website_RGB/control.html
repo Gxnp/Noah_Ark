@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RGB LED Control (MQTT)</title>
+<!-- ไลบรารี MQTT สำหรับเว็บ ต่อ broker ผ่าน WebSocket -->
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  body { font-family: sans-serif; max-width: 460px; margin: 40px auto; padding: 0 16px; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; }
+  .row b { font-size: 20px; }
+  button { font-size: 16px; padding: 8px 18px; margin-left: 6px; cursor: pointer; }
+  button.on { background: #222; color: #fff; }
+  #preview { width: 100px; height: 100px; border-radius: 50%; margin: 20px auto; border: 4px solid #ccc; background: #000; }
+  #status { color: gray; }
+  .presets button { margin: 4px; }
+</style>
+</head>
+<body>
+  <h2>ควบคุม Color LED ผ่าน MQTT</h2>
+  <p id="status">กำลังเชื่อมต่อ broker...</p>
+  <div id="preview"></div>
+
+  <div class="row"><b style="color:red">Red</b>
+    <span><button id="red-on" onclick="setColor('red', 'ON')">ON</button><button id="red-off" onclick="setColor('red', 'OFF')">OFF</button></span></div>
+  <div class="row"><b style="color:green">Green</b>
+    <span><button id="green-on" onclick="setColor('green', 'ON')">ON</button><button id="green-off" onclick="setColor('green', 'OFF')">OFF</button></span></div>
+  <div class="row"><b style="color:blue">Blue</b>
+    <span><button id="blue-on" onclick="setColor('blue', 'ON')">ON</button><button id="blue-off" onclick="setColor('blue', 'OFF')">OFF</button></span></div>
+
+  <h3>สีสำเร็จรูป</h3>
+  <div class="presets">
+    <button onclick="mix(1,0,0)">แดง</button>
+    <button onclick="mix(0,1,0)">เขียว</button>
+    <button onclick="mix(0,0,1)">น้ำเงิน</button>
+    <button onclick="mix(1,1,0)">เหลือง</button>
+    <button onclick="mix(0,1,1)">ฟ้า</button>
+    <button onclick="mix(1,0,1)">ม่วง</button>
+    <button onclick="mix(1,1,1)">ขาว</button>
+    <button onclick="mix(0,0,0)">ปิด</button>
+  </div>
+
+<script>
+  // ต้องตรงกับ TOPIC ในโค้ดบอร์ด (เปลี่ยนรหัสนักศึกษา)
+  const BASE = "68070180/rgb/";
+
+  // เว็บเบราว์เซอร์ต่อ MQTT ตรง ๆ ไม่ได้ ต้องผ่าน WebSocket
+  // wss://...:8884 ใช้ได้ทั้งเปิดไฟล์จากเครื่องและจากเว็บ https
+  // (ถ้าเปิดจากไฟล์ในเครื่อง ใช้ "ws://mqtt-dashboard.com:8000/mqtt" ก็ได้)
+  const client = mqtt.connect("wss://mqtt-dashboard.com:8884/mqtt");
+
+  const state = { red: false, green: false, blue: false };
+
+  client.on("connect", function () {
+    document.getElementById("status").textContent = "เชื่อมต่อ broker แล้ว";
+  });
+  client.on("reconnect", function () {
+    document.getElementById("status").textContent = "กำลังเชื่อมต่อใหม่...";
+  });
+
+  function setColor(color, value) {
+    client.publish(BASE + color, value);        // เช่น 68070180/rgb/red : ON
+    state[color] = (value === "ON");
+    render();
+  }
+
+  function mix(r, g, b) {
+    setColor("red",   r ? "ON" : "OFF");
+    setColor("green", g ? "ON" : "OFF");
+    setColor("blue",  b ? "ON" : "OFF");
+  }
+
+  function render() {
+    const r = state.red ? 255 : 0, g = state.green ? 255 : 0, b = state.blue ? 255 : 0;
+    document.getElementById("preview").style.background = "rgb(" + r + "," + g + "," + b + ")";
+    ["red", "green", "blue"].forEach(function (c) {
+      document.getElementById(c + "-on").className  = state[c] ? "on" : "";
+      document.getElementById(c + "-off").className = state[c] ? "" : "on";
+    });
+  }
+  render();
+</script>
+</body>
+</html>

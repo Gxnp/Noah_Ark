@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MQTT Web Test</title>
+<!-- หน้าเว็บทดสอบ MQTT แบบเดียวกับ HiveMQ client: เลือก broker, subscribe, publish -->
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<style>
+  body { font-family: sans-serif; max-width: 640px; margin: 30px auto; padding: 0 16px; }
+  fieldset { margin-bottom: 14px; border-radius: 8px; }
+  input, select, button { font-size: 15px; padding: 6px 8px; margin: 4px 0; }
+  input[type=text] { width: 100%; box-sizing: border-box; }
+  #log { background: #111; color: #9f9; height: 260px; overflow: auto; padding: 10px; font: 13px monospace; border-radius: 8px; }
+  #status { font-weight: bold; }
+</style>
+</head>
+<body>
+  <h2>MQTT Web Test</h2>
+
+  <fieldset>
+    <legend>Connection</legend>
+    <select id="broker">
+      <!-- เว็บเบราว์เซอร์ต้องใช้ WebSocket (wss) ไม่ใช่ 1883 แบบบอร์ด -->
+      <option value="wss://phycom.it.kmitl.ac.th:8884/mqtt">phycom.it.kmitl.ac.th : 8884</option>
+      <option value="wss://mqtt-dashboard.com:8884/mqtt">mqtt-dashboard.com : 8884 (HiveMQ)</option>
+      <option value="wss://test.mosquitto.org:8081/mqtt">test.mosquitto.org : 8081</option>
+    </select>
+    <button onclick="connect()">Connect</button>
+    <span id="status">ยังไม่เชื่อมต่อ</span>
+  </fieldset>
+
+  <fieldset>
+    <legend>Subscribe</legend>
+    <input type="text" id="subTopic" value="68070180/#">
+    <button onclick="subscribe()">Subscribe</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Publish</legend>
+    <input type="text" id="pubTopic" value="68070180/prob_stat">
+    <input type="text" id="pubMsg" value="7">
+    <label><input type="checkbox" id="retain"> Retain</label>
+    <button onclick="publish()">Publish</button>
+  </fieldset>
+
+  <div id="log"></div>
+
+<script>
+  let client = null;
+
+  function log(text) {
+    const el = document.getElementById("log");
+    el.textContent += new Date().toLocaleTimeString() + "  " + text + "\n";
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function connect() {
+    if (client) client.end(true);
+    const url = document.getElementById("broker").value;
+    document.getElementById("status").textContent = "กำลังเชื่อมต่อ...";
+    client = mqtt.connect(url, {
+      clientId: "web-" + Math.random().toString(16).slice(2, 8),   // ห้ามซ้ำกับบอร์ด
+      clean: true,
+      reconnectPeriod: 2000
+      // ถ้า broker ต้องใช้รหัส: username: "user", password: "pass"
+    });
+    client.on("connect", () => { document.getElementById("status").textContent = "เชื่อมต่อแล้ว"; log("connected " + url); });
+    client.on("reconnect", () => { document.getElementById("status").textContent = "กำลังเชื่อมต่อใหม่..."; });
+    client.on("error", (e) => log("error: " + e.message));
+    client.on("message", (topic, msg) => log("[RX] " + topic + " : " + msg.toString()));
+  }
+
+  function subscribe() {
+    if (!client) return log("กด Connect ก่อน");
+    const t = document.getElementById("subTopic").value.trim();
+    client.subscribe(t, { qos: 0 }, (err) => log(err ? "sub error" : "subscribed " + t));
+  }
+
+  function publish() {
+    if (!client) return log("กด Connect ก่อน");
+    const t = document.getElementById("pubTopic").value.trim();
+    const m = document.getElementById("pubMsg").value;
+    const retain = document.getElementById("retain").checked;
+    client.publish(t, m, { qos: 0, retain: retain });
+    log("[TX] " + t + " : " + m + (retain ? " (retain)" : ""));
+  }
+</script>
+</body>
+</html>
